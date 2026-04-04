@@ -15,7 +15,7 @@ By leveraging **Phase 0 Intelligence**, this tool allows for surgical strikes ag
 
 ---
 
-## 🎯 The Attack Chain (Jake Lo's Protocol)
+## 🎯 The Attack Chain
 
 ### **Phase 0: Pre-Action Intelligence (Reconnaissance)**
 * **Infrastructure History Recon:** Analyze the age of the target building. Older architectural infrastructures often suffer from poor **network isolation** (Flat Networks). Identifying a "legacy" building means that once an ingress point is established, you may be able to recon the entire building's shared network.
